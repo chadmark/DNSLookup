@@ -1,0 +1,10 @@
+services:
+  dns-lookup:
+    build: .
+    container_name: dns-lookup
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8

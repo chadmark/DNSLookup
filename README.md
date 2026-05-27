@@ -112,14 +112,42 @@ The frontend is a single static HTML file served by Flask. All DNS queries go th
 
 ## Updating
 
-To pull in a new version of `index.html` without a full rebuild:
+### Full update from GitHub (recommended)
+
+Pulls the latest code and rebuilds the container image from scratch:
 
 ```bash
-cp index.html static/
+cd ~/docker/DNSLookup
+git pull
+docker compose down
+docker compose up -d --build
+```
+
+Use this when `app.py`, `Dockerfile`, or `docker-compose.yml` have changed, or when you're unsure what changed.
+
+### Frontend-only update (no rebuild)
+
+If only `index.html` or `favicon.ico` changed, you can skip the rebuild and just restart:
+
+```bash
+cd ~/docker/DNSLookup
+git pull
 docker compose restart
 ```
 
-If changes aren't showing after restart, hard-refresh the browser:
+This works because Flask serves `static/` directly from the host filesystem — the container doesn't need to be rebuilt to pick up file changes in that folder.
+
+### Checking the current version
+
+The version is noted at the top of this README and in the `app.py` header. To confirm what's running in the container:
+
+```bash
+docker compose logs dns-lookup | head -20
+```
+
+### Browser cache
+
+If changes aren't showing after a restart, hard-refresh the browser to clear cached CSS/JS:
 - Windows/Linux: `Ctrl + Shift + R`
 - macOS: `Cmd + Shift + R`
 

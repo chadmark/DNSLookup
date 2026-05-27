@@ -6,9 +6,10 @@
 # GitHub      : https://github.com/chadmark/DNSLookup
 # Environment : Docker (python:3.12-slim + dnsutils)
 # Requires    : Flask 3.0.3, dnsutils (dig)
-# Version     : 1.0
+# Version     : 1.3
 #
 # Changelog:
+#   1.3 - 05-27-2026 - Added favicon.ico route (blue lowercase dns)
 #   1.0 - 05-27-2026 - Initial release
 # =============================================================================
 
@@ -24,6 +25,11 @@ ALLOWED_TYPES = {"A", "AAAA", "MX", "TXT", "CNAME", "NS", "SOA", "PTR", "SRV", "
 @app.route("/")
 def index():
     return send_from_directory("static", "index.html")
+
+
+@app.route("/favicon.ico")
+def favicon():
+    return send_from_directory("static", "favicon.ico", mimetype="image/vnd.microsoft.icon")
 
 
 @app.route("/lookup", methods=["POST"])

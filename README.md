@@ -2,9 +2,24 @@
 
 A self-hosted DNS lookup, email authentication analysis, and WHOIS/IP intelligence tool, powered by `dig`, `python-whois`, Flask, and a dark terminal-style UI. Built for internal MSP/homelab use — deploy alongside existing Docker stacks on any Ubuntu VM.
 
-**Current version: 2.0**
+**Current version: 2.1**
 
 ## Changelog
+
+**v2.1 — 05-27-2026**
+- Added Global Propagation tab — parallel dig across 17 verified public resolvers worldwide
+- Resolver list: Google, Cloudflare, OpenDNS, Quad9, Alternate DNS, CleanBrowsing, AdGuard, HiNet, KT, Embratel
+- Auto-detects consensus answer; color-coded cards (green = match, red = mismatch, yellow = timeout, gray = no record)
+- Progress bar shows agreement percentage at a glance
+- Added `/debug/resolvers` endpoint — browser-accessible HTML report testing all resolvers against `google.com A`
+- Debug link added to footer (opens in new tab)
+- Added light/dark mode toggle with `localStorage` persistence (top-right corner)
+- Added vertical dividers between tab buttons
+- Fixed button text color for light mode compatibility
+- Added version number to footer
+- Tab switching refactored to use `data-tab` attributes — fixes index-based nav bug
+- Fixed recurring `esc()` function declaration bug (stripped during JS block insertions)
+- Added `favicon.ico` (blue `dns` text, multi-size: 16/32/48/64/128/256px)
 
 **v2.0 — 05-27-2026**
 - **Major release — WHOIS / IP tab added**
@@ -68,9 +83,15 @@ A self-hosted DNS lookup, email authentication analysis, and WHOIS/IP intelligen
 - Source attribution shown for every IP result
 - Copy to clipboard
 
----
+**Global Propagation tab**
+- Queries 17 verified public resolvers across North America, Europe, Asia Pacific, and South America simultaneously
+- Color-coded result cards: green = matches consensus, red = different answer, yellow = timed out, gray = no record
+- Progress bar shows overall propagation percentage
+- Consensus answer displayed — useful for confirming the correct answer after a DNS change
+- Supports A, AAAA, MX, TXT, CNAME, NS, SOA, PTR, SRV, CAA record types
+- `/debug/resolvers` endpoint — browser-accessible diagnostic page showing resolver health at a glance
 
-## File Structure
+---
 
 ```
 DNSLookup/

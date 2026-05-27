@@ -3,7 +3,7 @@
 # =============================================================================
 # Author      : Markley Technologies
 # Last Edit   : 05-27-2026
-# GitHub      : https://github.com/chadmark/MSP-Scripts/tree/main/docker/DNSlookup
+# GitHub      : https://github.com/chadmark/DNSLookup
 # Environment : Docker (python:3.12-slim + dnsutils)
 # Requires    : Flask 3.0.3, dnsutils (dig)
 # Version     : 1.0

@@ -2,11 +2,38 @@
 
 A self-hosted DNS lookup and email authentication analysis tool, powered by `dig`, Flask, and a dark terminal-style UI. Built for internal MSP/homelab use — deploy alongside existing Docker stacks on any Ubuntu VM.
 
+**Current version: 1.2**
+
+## Changelog
+
+**v1.2 — 05-27-2026**
+- Replaced freeform nameserver text input with a provider dropdown on both tabs
+- Providers: Google (primary/secondary), Cloudflare, OpenDNS, Quad9, Yandex
+- "Global (default)" option uses the container's system resolver with no `@` flag passed to `dig`
+- "Custom…" option reveals a free-text input for internal resolvers (Pi-hole, AD DNS, etc.)
+- Both tabs share the same provider list and nameserver resolution logic
+
+**v1.1 — 05-27-2026**
+- Added Email Auth tab with SPF and DMARC analysis
+- SPF breakdown: parses all mechanisms with qualifier color-coding; warns on RFC 7208 10-lookup limit
+- DMARC breakdown: decodes all tags with human-readable descriptions and policy severity indicator
+- "Show raw" toggle on both SPF and DMARC sections
+- Flags common misconfigurations (`p=none`, missing `rua=`)
+- Fixed page centering — wrapped layout in `max-width: 720px; margin: 0 auto` container
+
+**v1.0 — 05-27-2026**
+- Initial release
+- DNS Lookup tab: A, AAAA, MX, TXT, CNAME, NS, SOA, PTR, SRV, CAA, ANY record types
+- Verbose toggle, syntax highlighting, copy to clipboard
+- Displays exact `dig` command used for every query
+
+---
+
 ## Features
 
 **DNS Lookup tab**
 - Record types: A, AAAA, MX, TXT, CNAME, NS, SOA, PTR, SRV, CAA, ANY
-- Optional custom nameserver (e.g. `8.8.8.8`, `1.1.1.1`, or an internal resolver)
+- Nameserver dropdown — Google, Cloudflare, OpenDNS, Quad9, Yandex (primary and secondary), Global default, or Custom
 - Verbose toggle — clean answer-only output vs. full `dig` stats and comments
 - Syntax highlighting for record types, IPs, and TTLs
 - Displays the exact `dig` command used for every query
@@ -19,10 +46,12 @@ A self-hosted DNS lookup and email authentication analysis tool, powered by `dig
 - "Show raw" toggle on both sections to see the underlying `dig` output
 - Flags common misconfigurations (e.g. `p=none` monitoring-only, missing `rua=`)
 
+---
+
 ## File Structure
 
 ```
-DNSlookup/
+DNSLookup/
 ├── app.py                  # Flask API backend
 ├── static/
 │   └── index.html          # Frontend UI (must be inside static/ subfolder)
@@ -39,12 +68,14 @@ DNSlookup/
 > docker compose up -d --build
 > ```
 
+---
+
 ## Quick Start
 
 ```bash
-# 1. Clone the repo (or copy the DNSlookup folder to your server)
-git clone https://github.com/chadmark/MSP-Scripts.git
-cd MSP-Scripts/docker/DNSlookup
+# 1. Clone the repo
+git clone https://github.com/chadmark/DNSLookup.git
+cd DNSLookup
 
 # 2. Build and start the container
 docker compose up -d
@@ -68,6 +99,8 @@ Then restart:
 docker compose down && docker compose up -d
 ```
 
+---
+
 ## How It Works
 
 The frontend is a single static HTML file served by Flask. All DNS queries go through a `/lookup` API endpoint that shells out to `dig` via Python `subprocess`. No external DNS libraries — just `dnsutils` installed in the container.
@@ -75,6 +108,7 @@ The frontend is a single static HTML file served by Flask. All DNS queries go th
 - **Verbose off:** `dig +noall +answer +question` — clean records only
 - **Verbose on:** `dig +stats +comments` — full output with timing, server info, and flags
 - **SPF/DMARC:** fires two parallel `TXT` lookups (`domain` and `_dmarc.domain`), parses the results in the browser
+- **Nameserver:** selected provider IP is passed as `@<ip>` to `dig`; "Global" passes nothing and uses the container resolver
 
 ## Updating
 
@@ -85,9 +119,11 @@ cp index.html static/
 docker compose restart
 ```
 
-If CSS or layout changes aren't showing after restart, hard-refresh the browser:
+If changes aren't showing after restart, hard-refresh the browser:
 - Windows/Linux: `Ctrl + Shift + R`
 - macOS: `Cmd + Shift + R`
+
+---
 
 ## Requirements
 
@@ -100,4 +136,4 @@ Intended for internal/homelab use only. The `/lookup` endpoint runs `dig` via su
 
 ---
 
-*Markley Technologies — MSP Scripts · docker/DNSlookup*
+*Markley Technologies · https://github.com/chadmark/DNSLookup*

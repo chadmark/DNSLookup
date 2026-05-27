@@ -1,10 +1,23 @@
 # DNS Lookup — Self-Hosted Docker Tool
 
-A self-hosted DNS lookup and email authentication analysis tool, powered by `dig`, Flask, and a dark terminal-style UI. Built for internal MSP/homelab use — deploy alongside existing Docker stacks on any Ubuntu VM.
+A self-hosted DNS lookup, email authentication analysis, and WHOIS/IP intelligence tool, powered by `dig`, `python-whois`, Flask, and a dark terminal-style UI. Built for internal MSP/homelab use — deploy alongside existing Docker stacks on any Ubuntu VM.
 
-**Current version: 1.2**
+**Current version: 2.0**
 
 ## Changelog
+
+**v2.0 — 05-27-2026**
+- **Major release — WHOIS / IP tab added**
+- New `/whois` API endpoint — domain WHOIS via `python-whois` (direct protocol, no API key, no rate limits)
+- IP geolocation with automatic three-service fallback chain: `ipapi.co` → `ip-api.com` → `ipwho.is`
+- Auto-detects input type (domain vs. IP address) — single input field handles both
+- Domain results: registrar, creation/updated/expiry dates (color-coded by urgency), name servers, status, DNSSEC, contact
+- IP results: organization, ASN, city, region, country, coordinates, timezone, and which API responded
+- Expiry date color coding: red < 30 days, yellow < 90 days, green otherwise
+- Copy to clipboard on WHOIS results
+- Fixed JS syntax error (`esc()` function declaration dropped during merge) that broke all tab navigation and lookups
+- Tab switching refactored to use `data-tab` attributes instead of fragile index-based matching
+- Added `favicon.ico` (blue `dns` text, multi-size: 16/32/48/64/128/256px)
 
 **v1.2 — 05-27-2026**
 - Replaced freeform nameserver text input with a provider dropdown on both tabs
@@ -46,6 +59,15 @@ A self-hosted DNS lookup and email authentication analysis tool, powered by `dig
 - "Show raw" toggle on both sections to see the underlying `dig` output
 - Flags common misconfigurations (e.g. `p=none` monitoring-only, missing `rua=`)
 
+**WHOIS / IP tab**
+- Single input field — automatically detects domain vs. IP address
+- Domain WHOIS: registrar, dates, name servers, status, DNSSEC, contact info
+- Expiry date color-coded: red (< 30 days), yellow (< 90 days), green (healthy)
+- IP geolocation: organization, ASN, city, region, country, coordinates, timezone
+- Three-service fallback chain for IP lookups — no single point of failure
+- Source attribution shown for every IP result
+- Copy to clipboard
+
 ---
 
 ## File Structure
@@ -54,17 +76,18 @@ A self-hosted DNS lookup and email authentication analysis tool, powered by `dig
 DNSLookup/
 ├── app.py                  # Flask API backend
 ├── static/
-│   └── index.html          # Frontend UI (must be inside static/ subfolder)
+│   ├── index.html          # Frontend UI (must be inside static/ subfolder)
+│   └── favicon.ico         # Browser tab icon
 ├── Dockerfile
 ├── docker-compose.yml
 └── README.md
 ```
 
-> ⚠️ **Important:** `index.html` must live inside the `static/` subfolder — not in the project root. The Dockerfile copies `static/` as a directory. If you download or copy files manually, create the `static/` folder first and place `index.html` inside it before running `docker compose up`.
+> ⚠️ **Important:** `index.html` and `favicon.ico` must live inside the `static/` subfolder — not in the project root. The Dockerfile copies `static/` as a directory. If you download or copy files manually, create the `static/` folder first:
 >
 > ```bash
 > mkdir static
-> mv index.html static/
+> mv index.html favicon.ico static/
 > docker compose up -d --build
 > ```
 
@@ -78,7 +101,7 @@ git clone https://github.com/chadmark/DNSLookup.git
 cd DNSLookup
 
 # 2. Build and start the container
-docker compose up -d
+docker compose up -d --build
 
 # 3. Open in browser
 http://<server-ip>:5000
@@ -103,18 +126,24 @@ docker compose down && docker compose up -d
 
 ## How It Works
 
-The frontend is a single static HTML file served by Flask. All DNS queries go through a `/lookup` API endpoint that shells out to `dig` via Python `subprocess`. No external DNS libraries — just `dnsutils` installed in the container.
+The frontend is a single static HTML file served by Flask. Three API endpoints handle all queries:
 
-- **Verbose off:** `dig +noall +answer +question` — clean records only
-- **Verbose on:** `dig +stats +comments` — full output with timing, server info, and flags
-- **SPF/DMARC:** fires two parallel `TXT` lookups (`domain` and `_dmarc.domain`), parses the results in the browser
-- **Nameserver:** selected provider IP is passed as `@<ip>` to `dig`; "Global" passes nothing and uses the container resolver
+- **`/lookup`** — shells out to `dig` via Python `subprocess`; no external DNS libraries
+  - Verbose off: `dig +noall +answer +question` — clean records only
+  - Verbose on: `dig +stats +comments` — full output with timing, server info, and flags
+  - Nameserver: selected provider IP passed as `@<ip>`; "Global" uses the container resolver
+
+- **`/whois`** — uses `python-whois` for domain queries (direct WHOIS protocol, no API key); uses `requests` to call free IP geolocation APIs for IP queries with automatic fallback
+
+- **`/favicon.ico`** — serves the favicon from `static/`
+
+---
 
 ## Updating
 
 ### Full update from GitHub (recommended)
 
-Pulls the latest code and rebuilds the container image from scratch:
+Required when `app.py`, `Dockerfile`, or `docker-compose.yml` have changed:
 
 ```bash
 cd ~/docker/DNSLookup
@@ -123,11 +152,9 @@ docker compose down
 docker compose up -d --build
 ```
 
-Use this when `app.py`, `Dockerfile`, or `docker-compose.yml` have changed, or when you're unsure what changed.
-
 ### Frontend-only update (no rebuild)
 
-If only `index.html` or `favicon.ico` changed, you can skip the rebuild and just restart:
+If only `index.html` or `favicon.ico` changed:
 
 ```bash
 cd ~/docker/DNSLookup
@@ -135,11 +162,9 @@ git pull
 docker compose restart
 ```
 
-This works because Flask serves `static/` directly from the host filesystem — the container doesn't need to be rebuilt to pick up file changes in that folder.
+Flask serves `static/` directly from the host filesystem — no rebuild needed for frontend-only changes.
 
 ### Checking the current version
-
-The version is noted at the top of this README and in the `app.py` header. To confirm what's running in the container:
 
 ```bash
 docker compose logs dns-lookup | head -20
@@ -147,7 +172,7 @@ docker compose logs dns-lookup | head -20
 
 ### Browser cache
 
-If changes aren't showing after a restart, hard-refresh the browser to clear cached CSS/JS:
+If changes aren't showing after a restart, hard-refresh:
 - Windows/Linux: `Ctrl + Shift + R`
 - macOS: `Cmd + Shift + R`
 
@@ -160,7 +185,7 @@ If changes aren't showing after a restart, hard-refresh the browser to clear cac
 
 ## Security Note
 
-Intended for internal/homelab use only. The `/lookup` endpoint runs `dig` via subprocess — do not expose this to the public internet without adding authentication in front of it (e.g. Nginx basic auth or a VPN requirement).
+Intended for internal/homelab use only. The API endpoints shell out to `dig` and make outbound HTTP requests to geolocation services — do not expose this to the public internet without adding authentication in front of it (e.g. Nginx basic auth or VPN requirement).
 
 ---
 

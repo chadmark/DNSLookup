@@ -417,6 +417,76 @@
     border-top: 1px solid var(--border);
   }
 
+  /* WHOIS tab */
+  .whois-result {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    width: 100%;
+    overflow: hidden;
+    margin-bottom: 1.25rem;
+    display: none;
+  }
+  .whois-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.25rem;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+  .whois-title {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .whois-grid {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+  }
+  .whois-key {
+    padding: 0.5rem 1.25rem;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    word-break: break-word;
+  }
+  .whois-val {
+    padding: 0.5rem 1.25rem;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+    word-break: break-all;
+    line-height: 1.5;
+  }
+  .whois-grid > div:nth-last-child(-n+2) {
+    border-bottom: none;
+  }
+  .whois-val.highlight { color: var(--accent); }
+  .whois-val.green { color: var(--green); }
+  .whois-val.yellow { color: var(--yellow); }
+  .whois-val.red { color: var(--red); }
+  .whois-val ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .whois-val ul li::before {
+    content: '· ';
+    color: var(--text-dim);
+  }
+  .source-note {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    padding: 0.6rem 1.25rem;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+
   footer {
     margin-top: 2rem;
     font-family: var(--mono);
@@ -437,8 +507,9 @@
 
 <!-- Tab Nav -->
 <div class="tabs">
-  <button class="tab-btn active" onclick="switchTab('dns')">DNS Lookup</button>
-  <button class="tab-btn" onclick="switchTab('email')">Email Auth (SPF / DMARC)</button>
+  <button class="tab-btn active" data-tab="dns" onclick="switchTab('dns')">DNS Lookup</button>
+  <button class="tab-btn" data-tab="email" onclick="switchTab('email')">Email Auth (SPF / DMARC)</button>
+  <button class="tab-btn" data-tab="whois" onclick="switchTab('whois')">WHOIS / IP</button>
 </div>
 
 <!-- DNS LOOKUP TAB -->
@@ -565,6 +636,31 @@
   </div>
 </div>
 
+<!-- WHOIS / IP TAB -->
+<div class="tab-panel" id="tab-whois">
+  <div class="card">
+    <div class="input-row">
+      <div class="input-wrap">
+        <label class="input-label" for="whoisQuery">Domain or IP Address</label>
+        <input type="text" id="whoisQuery" placeholder="example.com or 8.8.8.8" autocomplete="off" spellcheck="false">
+      </div>
+    </div>
+    <button class="btn-primary" id="whoisBtn" onclick="doWhois()">Look Up</button>
+  </div>
+
+  <div class="whois-result" id="whoisResult">
+    <div class="whois-header">
+      <div class="whois-title">
+        <span id="whoisTypeLabel">WHOIS</span>
+        <span class="auth-badge badge-loading" id="whoisBadge">Querying…</span>
+      </div>
+      <button class="copy-btn" onclick="copyWhois()">Copy</button>
+    </div>
+    <div class="whois-grid" id="whoisGrid"></div>
+    <div class="source-note" id="whoisSource"></div>
+  </div>
+</div>
+
 <footer>Markley Technologies · DNS Lookup · dig-based API</footer>
 
 </div><!-- /.main-wrap -->
@@ -572,8 +668,12 @@
 <script>
 // ── Tab switching ──────────────────────────────────────────────────────────
 function switchTab(name) {
-  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', ['dns','email'][i] === name));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-'+name));
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-tab') === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    p.classList.toggle('active', p.id === 'tab-' + name);
+  });
 }
 
 // ── Nameserver providers ───────────────────────────────────────────────────
@@ -963,6 +1063,159 @@ async function doEmailAuth() {
   renderDmarc(dmarcRecord, dmarcRaw);
 
   btn.disabled = false;
+}
+
+// ── WHOIS / IP Lookup ─────────────────────────────────────────────────────
+
+document.getElementById('whoisQuery').addEventListener('keydown', e => { if(e.key==='Enter') doWhois(); });
+
+// Human-readable labels for WHOIS domain fields
+const DOMAIN_LABELS = {
+  domain_name:        'Domain',
+  registrar:          'Registrar',
+  registrar_url:      'Registrar URL',
+  whois_server:       'WHOIS Server',
+  referral_url:       'Referral URL',
+  updated_date:       'Updated',
+  creation_date:      'Created',
+  expiration_date:    'Expires',
+  name_servers:       'Name Servers',
+  status:             'Status',
+  emails:             'Contact Email',
+  dnssec:             'DNSSEC',
+  name:               'Registrant Name',
+  org:                'Organization',
+  address:            'Address',
+  city:               'City',
+  state:              'State',
+  zipcode:            'ZIP',
+  country:            'Country',
+};
+
+// Human-readable labels for IP fields
+const IP_LABELS = {
+  ip:           'IP Address',
+  type:         'Type',
+  hostname:     'Hostname',
+  org:          'Organization',
+  asn:          'ASN',
+  city:         'City',
+  region:       'Region',
+  country:      'Country',
+  country_code: 'Country Code',
+  postal:       'Postal Code',
+  latitude:     'Latitude',
+  longitude:    'Longitude',
+  timezone:     'Timezone',
+};
+
+function whoisValClass(key, val) {
+  if (['ip','domain_name'].includes(key)) return 'highlight';
+  if (key === 'expiration_date') {
+    const d = new Date(val);
+    const days = (d - Date.now()) / 86400000;
+    if (days < 30) return 'red';
+    if (days < 90) return 'yellow';
+    return 'green';
+  }
+  if (key === 'creation_date' || key === 'updated_date') return 'green';
+  if (key === 'org' || key === 'asn') return 'whois-val';
+  return '';
+}
+
+function renderWhoisGrid(data, labelMap) {
+  const grid = document.getElementById('whoisGrid');
+  let html = '';
+  for (const [key, label] of Object.entries(labelMap)) {
+    const val = data[key];
+    if (!val) continue;
+    const cls = whoisValClass(key, Array.isArray(val) ? val[0] : val);
+    let valHtml;
+    if (Array.isArray(val)) {
+      valHtml = `<ul>${val.map(v => `<li>${esc(v)}</li>`).join('')}</ul>`;
+    } else {
+      valHtml = esc(String(val));
+    }
+    html += `<div class="whois-key">${label}</div><div class="whois-val ${cls}">${valHtml}</div>`;
+  }
+  // Any extra fields not in our label map
+  for (const [key, val] of Object.entries(data)) {
+    if (Object.keys(labelMap).includes(key) || key === 'source') continue;
+    const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const valStr = Array.isArray(val) ? val.join(', ') : String(val);
+    html += `<div class="whois-key">${esc(label)}</div><div class="whois-val">${esc(valStr)}</div>`;
+  }
+  grid.innerHTML = html;
+}
+
+let lastWhoisData = null;
+
+async function doWhois() {
+  const query = document.getElementById('whoisQuery').value.trim();
+  if (!query) { document.getElementById('whoisQuery').focus(); return; }
+
+  const result = document.getElementById('whoisResult');
+  const badge = document.getElementById('whoisBadge');
+  const typeLabel = document.getElementById('whoisTypeLabel');
+  const source = document.getElementById('whoisSource');
+  const btn = document.getElementById('whoisBtn');
+
+  result.style.display = 'block';
+  badge.className = 'auth-badge badge-loading';
+  badge.textContent = 'Querying…';
+  document.getElementById('whoisGrid').innerHTML = '';
+  source.textContent = '';
+  btn.disabled = true;
+  lastWhoisData = null;
+
+  try {
+    const res = await fetch('/whois', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ query })
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      badge.className = 'auth-badge badge-missing';
+      badge.textContent = 'Error';
+      typeLabel.textContent = 'WHOIS / IP';
+      document.getElementById('whoisGrid').innerHTML =
+        `<div class="whois-key">Error</div><div class="whois-val red">${esc(data.error)}</div>`;
+    } else if (data.type === 'ip') {
+      typeLabel.textContent = 'IP Geolocation';
+      badge.className = 'auth-badge badge-found';
+      badge.textContent = data.data.type || 'IP';
+      lastWhoisData = data.data;
+      renderWhoisGrid(data.data, IP_LABELS);
+      source.textContent = `Data source: ${data.data.source}`;
+    } else {
+      typeLabel.textContent = 'WHOIS';
+      badge.className = 'auth-badge badge-found';
+      badge.textContent = 'Domain';
+      lastWhoisData = data.data;
+      renderWhoisGrid(data.data, DOMAIN_LABELS);
+      source.textContent = 'Data source: WHOIS protocol (python-whois)';
+    }
+  } catch(e) {
+    badge.className = 'auth-badge badge-missing';
+    badge.textContent = 'Failed';
+    document.getElementById('whoisGrid').innerHTML =
+      `<div class="whois-key">Error</div><div class="whois-val red">Could not reach the API.</div>`;
+  }
+  btn.disabled = false;
+}
+
+function copyWhois() {
+  if (!lastWhoisData) return;
+  const text = Object.entries(lastWhoisData)
+    .filter(([k]) => k !== 'source')
+    .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+    .join('\n');
+  navigator.clipboard.writeText(text).catch(()=>{});
+  const btn = document.querySelector('#whoisResult .copy-btn');
+  btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = 'Copy', 1500);
 }
 
 function esc(s) {

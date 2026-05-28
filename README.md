@@ -2,9 +2,18 @@
 
 A self-hosted DNS lookup, email authentication analysis, and WHOIS/IP intelligence tool, powered by `dig`, `python-whois`, Flask, and a dark terminal-style UI. Built for internal MSP/homelab use — deploy alongside existing Docker stacks on any Ubuntu VM.
 
-**Current version: 2.1**
+**Current version: 2.2**
 
 ## Changelog
+
+**v2.2 — 05-28-2026**
+- Added MTR tab — replaces traceroute for more useful hop-by-hop analysis
+- Uses `mtr --report-wide` with 10 cycles per hop — shows loss %, last/avg/best/worst/stddev latency per hop
+- Per-hop reverse DNS resolution — shows hostname and IP for each hop
+- Streaming SSE output — results appear when MTR completes; status message shown while running
+- Stop button kills the MTR process mid-run
+- Copy to clipboard on results
+- Input value carried from other tabs
 
 **v2.1 — 05-27-2026**
 - Added Global Propagation tab — parallel dig across 17 verified public resolvers worldwide

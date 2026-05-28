@@ -4,23 +4,25 @@
 # Author      : Markley Technologies
 # Last Edit   : 05-27-2026
 # GitHub      : https://github.com/chadmark/DNSLookup
-# Environment : Docker (python:3.12-slim + dnsutils)
-# Requires    : Flask 3.0.3, python-whois, requests, dnsutils (dig)
-# Version     : 2.1
+# Environment : Docker (python:3.12-slim + dnsutils + traceroute)
+# Requires    : Flask 3.0.3, python-whois, requests, dnsutils (dig), traceroute
+# Version     : 2.2
 #
 # Changelog:
-#   2.1 - 05-27-2026 - Added /propagation endpoint; parallel dig across 25 global resolvers via ThreadPoolExecutor
-#   2.0 - 05-27-2026 - Major release; added WHOIS/IP tab, domain WHOIS via python-whois, IP geolocation with fallback chain, tab nav fix
+#   2.2 - 05-28-2026 - Replaced traceroute with MTR (mtr --report-wide); better hop visibility through firewalls
+#   2.1 - 05-27-2026 - Added /propagation endpoint; parallel dig across resolvers via ThreadPoolExecutor
+#   2.0 - 05-27-2026 - Major release; WHOIS/IP tab, domain WHOIS, IP geolocation, tab nav fix
 #   1.3 - 05-27-2026 - Added favicon.ico route
 #   1.0 - 05-27-2026 - Initial release
 # =============================================================================
 
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
 import subprocess
 import requests
 import whois
 import ipaddress
 import re
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 app = Flask(__name__, static_folder="static")
@@ -337,5 +339,75 @@ def debug_resolvers():
 
 
 
+# Active traceroute processes keyed by client session id
+_traceroute_procs = {}
+_traceroute_lock = threading.Lock()
+
+
+@app.route("/traceroute", methods=["GET"])
+def traceroute_stream():
+    host = request.args.get("host", "").strip()
+    session_id = request.args.get("sid", "default")
+
+    if not host:
+        return Response("data: ERROR: No hostname provided.\n\n", mimetype="text/event-stream")
+
+    if not re.match(r'^[a-zA-Z0-9.\-:_]+$', host):
+        return Response("data: ERROR: Invalid hostname.\n\n", mimetype="text/event-stream")
+
+    # --raw streams one line per probe in real time, format: "p <hop> <latency_us>"
+    # --no-dns speeds it up; we'll do a final --report-wide pass for hostnames
+    # Use --report for clean columnar output streamed after completion
+    cmd = ["mtr", "--report-wide", "--report-cycles", "10", "--report", host]
+
+    def generate():
+        proc = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1
+        )
+        with _traceroute_lock:
+            _traceroute_procs[session_id] = proc
+
+        # Send a status line immediately so the UI doesn't look frozen
+        yield f"data: Running MTR to {host} (10 cycles per hop, resolving hostnames)...\n\n"
+        yield f"data: Results will appear when complete.\n\n"
+        yield "data: \n\n"
+
+        try:
+            for line in proc.stdout:
+                line = line.rstrip()
+                if line:
+                    yield f"data: {line}\n\n"
+            proc.wait()
+            yield "data: __DONE__\n\n"
+        except Exception as e:
+            yield f"data: ERROR: {str(e)}\n\n"
+        finally:
+            with _traceroute_lock:
+                _traceroute_procs.pop(session_id, None)
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        }
+    )
+
+
+@app.route("/traceroute/stop", methods=["POST"])
+def traceroute_stop():
+    data = request.get_json()
+    session_id = data.get("sid", "default")
+    with _traceroute_lock:
+        proc = _traceroute_procs.get(session_id)
+    if proc:
+        proc.terminate()
+        return jsonify({"stopped": True})
+    return jsonify({"stopped": False})
+
+
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)

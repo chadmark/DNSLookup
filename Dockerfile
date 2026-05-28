@@ -4,7 +4,7 @@ LABEL maintainer="Markley Technologies"
 LABEL description="Self-hosted DNS Lookup Interface"
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends dnsutils whois && \
+    apt-get install -y --no-install-recommends dnsutils whois mtr-tiny && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

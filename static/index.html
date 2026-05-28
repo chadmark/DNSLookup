@@ -871,13 +871,26 @@ function toggleTheme() {
 }
 
 // ── Tab switching ──────────────────────────────────────────────────────────
+const TAB_INPUTS = { dns: 'host', email: 'emailDomain', whois: 'whoisQuery', propagation: 'propHost' };
+
 function switchTab(name) {
+  // Grab current value from whichever tab is active
+  const activeTab = document.querySelector('.tab-btn.active');
+  const currentTabName = activeTab ? activeTab.getAttribute('data-tab') : null;
+  const currentVal = currentTabName ? (document.getElementById(TAB_INPUTS[currentTabName])?.value.trim() || '') : '';
+
   document.querySelectorAll('.tab-btn').forEach(b => {
     b.classList.toggle('active', b.getAttribute('data-tab') === name);
   });
   document.querySelectorAll('.tab-panel').forEach(p => {
     p.classList.toggle('active', p.id === 'tab-' + name);
   });
+
+  // Carry value to destination input
+  if (currentVal) {
+    const destInput = document.getElementById(TAB_INPUTS[name]);
+    if (destInput && !destInput.value) destInput.value = currentVal;
+  }
 }
 
 // ── Nameserver providers ───────────────────────────────────────────────────

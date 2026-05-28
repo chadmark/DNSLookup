@@ -17,6 +17,7 @@ A self-hosted DNS lookup, email authentication analysis, and WHOIS/IP intelligen
 - Added vertical dividers between tab buttons
 - Fixed button text color for light mode compatibility
 - Added version number to footer
+- Input value carried between tabs — switching tabs populates the destination input with the current value (does not overwrite if already filled)
 - Tab switching refactored to use `data-tab` attributes — fixes index-based nav bug
 - Fixed recurring `esc()` function declaration bug (stripped during JS block insertions)
 - Added `favicon.ico` (blue `dns` text, multi-size: 16/32/48/64/128/256px)

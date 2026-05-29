@@ -4,6 +4,28 @@ A self-hosted DNS lookup, email authentication analysis, and WHOIS/IP intelligen
 
 **Current version: 2.2**
 
+## Screenshots
+
+### DNS Lookup
+![DNS Lookup tab](screenshots/01-dns-lookup.png)
+
+### Email Authentication (SPF / DMARC)
+![Email Auth tab](screenshots/02-email-auth-spf-dmarc.png)
+
+### WHOIS / IP
+![WHOIS tab](screenshots/03-whois-ip-lookup.png)
+
+### Global Propagation
+![Global Propagation tab](screenshots/04-dns-global-propogation.png)
+
+### MTR
+![MTR tab](screenshots/05-mtr-traceroute.png)
+
+### Resolver Health Check (Debug)
+![Resolver Debug page](screenshots/06-dns-resolver-healthcheck-debug.png)
+
+---
+
 ## Changelog
 
 **v2.2 — 05-28-2026**
